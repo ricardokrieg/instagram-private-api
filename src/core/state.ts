@@ -27,11 +27,11 @@ export class State {
   }
 
   get appVersion(): string {
-    return this.constants.APP_VERSION;
+    return this.constants.APP_VERSION_V2;
   }
 
   get appVersionCode(): string {
-    return this.constants.APP_VERSION_CODE;
+    return this.constants.APP_VERSION_CODE_V2;
   }
 
   get fbAnalyticsApplicationId(): string {
@@ -50,6 +50,10 @@ export class State {
     return this.constants.LOGIN_EXPERIMENTS;
   }
 
+  get loginExperimentsV2(): string {
+    return this.constants.LOGIN_EXPERIMENTS_V2;
+  }
+
   get experiments(): string {
     return this.constants.EXPERIMENTS;
   }
@@ -65,8 +69,10 @@ export class State {
   timezoneOffset: string = String(new Date().getTimezoneOffset() * -60);
   radioType = 'wifi-none';
   capabilitiesHeader = '3brTvwE=';
+  capabilitiesHeaderV2 = '3brTvx8=';
   connectionTypeHeader = 'WIFI';
   isLayoutRTL: boolean = false;
+  isPanoramaEnabled: boolean = false;
   euDCEnabled?: boolean = undefined;
   adsOptOut: boolean = false;
   thumbnailCacheBustingValue: number = 1000;
@@ -226,7 +232,7 @@ export class State {
     const obj = typeof state === 'string' ? JSON.parse(state) : state;
     if (typeof obj !== 'object') {
       State.stateDebug(`State deserialization failed, obj is of type ${typeof obj} (object expected)`);
-      throw new TypeError('State isn\'t an object or serialized JSON');
+      throw new TypeError("State isn't an object or serialized JSON");
     }
     State.stateDebug(`Deserializing ${Object.keys(obj).join(', ')}`);
     if (obj.constants) {

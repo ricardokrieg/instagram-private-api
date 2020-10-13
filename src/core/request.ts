@@ -29,7 +29,6 @@ type Payload = { [key: string]: any } | string;
 
 interface SignedPost {
   signed_body: string;
-  ig_sig_key_version: string;
 }
 
 export class Request {
@@ -107,16 +106,17 @@ export class Request {
   }
 
   public signature(data: string) {
-    return createHmac('sha256', this.client.state.signatureKey)
+    /*return createHmac('sha256', this.client.state.signatureKey)
       .update(data)
-      .digest('hex');
+      .digest('hex');*/
+    return `SIGNATURE`;
   }
 
   public sign(payload: Payload): SignedPost {
     const json = typeof payload === 'object' ? JSON.stringify(payload) : payload;
     const signature = this.signature(json);
     return {
-      ig_sig_key_version: this.client.state.signatureVersion,
+      // ig_sig_key_version: this.client.state.signatureVersion,
       signed_body: `${signature}.${json}`,
     };
   }
@@ -183,35 +183,37 @@ export class Request {
   public getDefaultHeaders() {
     return {
       'User-Agent': this.client.state.appUserAgent,
-      'X-Ads-Opt-Out': this.client.state.adsOptOut ? '1' : '0',
+      // 'X-Ads-Opt-Out': this.client.state.adsOptOut ? '1' : '0', // TODO
       // needed? 'X-DEVICE-ID': this.client.state.uuid,
-      'X-CM-Bandwidth-KBPS': '-1.000',
-      'X-CM-Latency': '-1.000',
+      // 'X-CM-Bandwidth-KBPS': '-1.000', // TODO
+      // 'X-CM-Latency': '-1.000', // TODO
       'X-IG-App-Locale': this.client.state.language,
       'X-IG-Device-Locale': this.client.state.language,
+      'X-IG-Mapped-Locale': this.client.state.language,
       'X-Pigeon-Session-Id': this.client.state.pigeonSessionId,
       'X-Pigeon-Rawclienttime': (Date.now() / 1000).toFixed(3),
       'X-IG-Connection-Speed': `${random(1000, 3700)}kbps`,
       'X-IG-Bandwidth-Speed-KBPS': '-1.000',
       'X-IG-Bandwidth-TotalBytes-B': '0',
       'X-IG-Bandwidth-TotalTime-MS': '0',
-      'X-IG-EU-DC-ENABLED':
-        typeof this.client.state.euDCEnabled === 'undefined' ? void 0 : this.client.state.euDCEnabled.toString(),
-      'X-IG-Extended-CDN-Thumbnail-Cache-Busting-Value': this.client.state.thumbnailCacheBustingValue.toString(),
+      // 'X-IG-EU-DC-ENABLED':
+      //   typeof this.client.state.euDCEnabled === 'undefined' ? void 0 : this.client.state.euDCEnabled.toString(), // TODO
+      // 'X-IG-Extended-CDN-Thumbnail-Cache-Busting-Value': this.client.state.thumbnailCacheBustingValue.toString(), // TODO
       'X-Bloks-Version-Id': this.client.state.bloksVersionId,
       'X-MID': this.client.state.extractCookie('mid')?.value,
       'X-IG-WWW-Claim': this.client.state.igWWWClaim || '0',
       'X-Bloks-Is-Layout-RTL': this.client.state.isLayoutRTL.toString(),
+      'X-Bloks-Is-Panorama-Enabled': this.client.state.isPanoramaEnabled.toString(),
       'X-IG-Connection-Type': this.client.state.connectionTypeHeader,
-      'X-IG-Capabilities': this.client.state.capabilitiesHeader,
+      'X-IG-Capabilities': this.client.state.capabilitiesHeaderV2,
       'X-IG-App-ID': this.client.state.fbAnalyticsApplicationId,
       'X-IG-Device-ID': this.client.state.uuid,
       'X-IG-Android-ID': this.client.state.deviceId,
       'Accept-Language': this.client.state.language.replace('_', '-'),
       'X-FB-HTTP-Engine': 'Liger',
-      Authorization: this.client.state.authorization,
+      // Authorization: this.client.state.authorization, // TODO
       Host: 'i.instagram.com',
-      'Accept-Encoding': 'gzip',
+      'Accept-Encoding': 'gzip, deflate',
       Connection: 'close',
     };
   }

@@ -26,7 +26,7 @@ export class AccountRepository extends Repository {
     if (!this.client.state.passwordEncryptionPubKey) {
       await this.client.qe.syncLoginExperiments();
     }
-    const {encrypted, time} = this.encryptPassword(password);
+    const { encrypted, time } = this.encryptPassword(password);
     const response = await Bluebird.try(() =>
       this.client.request.send<AccountRepositoryLoginResponseRootObject>({
         method: 'POST',
@@ -77,14 +77,17 @@ export class AccountRepository extends Repository {
     return `2${sum}`;
   }
 
-  public encryptPassword(password: string): { time: string, encrypted: string } {
+  public encryptPassword(password: string): { time: string; encrypted: string } {
     const randKey = crypto.randomBytes(32);
     const iv = crypto.randomBytes(12);
-    const rsaEncrypted = crypto.publicEncrypt({
-      key: Buffer.from(this.client.state.passwordEncryptionPubKey, 'base64').toString(),
-      // @ts-ignore
-      padding: crypto.constants.RSA_PKCS1_PADDING,
-    }, randKey);
+    const rsaEncrypted = crypto.publicEncrypt(
+      {
+        key: Buffer.from(this.client.state.passwordEncryptionPubKey, 'base64').toString(),
+        // @ts-ignore
+        padding: crypto.constants.RSA_PKCS1_PADDING,
+      },
+      randKey,
+    );
     const cipher = crypto.createCipheriv('aes-256-gcm', randKey, iv);
     const time = Math.floor(Date.now() / 1000).toString();
     cipher.setAAD(Buffer.from(time));
@@ -98,8 +101,10 @@ export class AccountRepository extends Repository {
         Buffer.from([1, this.client.state.passwordEncryptionKeyId]),
         iv,
         sizeBuffer,
-        rsaEncrypted, authTag, aesEncrypted])
-        .toString('base64'),
+        rsaEncrypted,
+        authTag,
+        aesEncrypted,
+      ]).toString('base64'),
     };
   }
 
@@ -315,12 +320,39 @@ export class AccountRepository extends Repository {
     return body;
   }
 
+  public async contactPointPrefillV2(usage = 'default') {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/contact_point_prefill/',
+      form: this.client.request.sign({
+        phone_id: this.client.state.phoneId,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        usage,
+      }),
+    });
+    return body;
+  }
+
   public async getPrefillCandidates() {
     const { body } = await this.client.request.send({
       method: 'POST',
       url: '/api/v1/accounts/get_prefill_candidates/',
       form: this.client.request.sign({
         android_device_id: this.client.state.deviceId,
+        usages: '["account_recovery_omnibox"]',
+        device_id: this.client.state.uuid,
+      }),
+    });
+    return body;
+  }
+
+  public async getPrefillCandidatesV2() {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/get_prefill_candidates/',
+      form: this.client.request.sign({
+        android_device_id: this.client.state.deviceId,
+        phone_id: this.client.state.phoneId,
         usages: '["account_recovery_omnibox"]',
         device_id: this.client.state.uuid,
       }),

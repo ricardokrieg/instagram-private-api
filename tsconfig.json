@@ -17,6 +17,6 @@
     "baseUrl": "./",
     "allowJs": false,
     "resolveJsonModule": true,
-    "noUnusedLocals": true
+    "noUnusedLocals": false
   }
 }

@@ -8,6 +8,13 @@ export class LauncherRepository extends Repository {
         'ig_fbns_blocked,ig_android_felix_release_players,ig_user_mismatch_soft_error,ig_android_carrier_signals_killswitch,ig_android_killswitch_perm_direct_ssim,fizz_ig_android,ig_mi_block_expired_events,ig_android_os_version_blocking_config',
     });
   }
+  public async preLoginSyncV2() {
+    return this.sync({
+      _csrftoken: this.client.state.cookieCsrfToken,
+      id: this.client.state.uuid,
+      server_config_retrieval: '1',
+    });
+  }
   public async postLoginSync() {
     const uid = this.client.state.cookieUserId;
     return this.sync({

@@ -7,6 +7,9 @@ export class QeRepository extends Repository {
   public async syncLoginExperiments() {
     return this.sync(this.client.state.loginExperiments);
   }
+  public async syncLoginExperimentsV2() {
+    return this.syncV2(this.client.state.loginExperimentsV2);
+  }
   public async sync(experiments) {
     let data;
     try {
@@ -23,6 +26,24 @@ export class QeRepository extends Repository {
       };
     }
     data = Object.assign(data, { experiments });
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/qe/sync/',
+      headers: {
+        'X-DEVICE-ID': this.client.state.uuid,
+      },
+      form: this.client.request.sign(data),
+    });
+    return body;
+  }
+  public async syncV2(experiments) {
+    const data = {
+      _csrftoken: this.client.state.cookieCsrfToken,
+      id: this.client.state.uuid,
+      server_config_experiments: `1`,
+      experiments,
+    };
+
     const { body } = await this.client.request.send({
       method: 'POST',
       url: '/api/v1/qe/sync/',

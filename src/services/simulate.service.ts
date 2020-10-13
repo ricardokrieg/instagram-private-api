@@ -16,6 +16,15 @@ export class SimulateService extends Repository {
     ];
   }
 
+  private get preLoginFlowRequestsV2(): Array<() => any> {
+    return [
+      () => this.client.account.contactPointPrefillV2('prefill'),
+      () => this.client.launcher.preLoginSyncV2(),
+      () => this.client.qe.syncLoginExperimentsV2(),
+      () => this.client.account.getPrefillCandidatesV2(),
+    ];
+  }
+
   private get postLoginFlowRequests(): Array<() => any> {
     return [
       () => this.client.zr.tokenResult(),
@@ -63,7 +72,7 @@ export class SimulateService extends Repository {
 
   public async preLoginFlow(concurrency?: number, toShuffle?: boolean) {
     return SimulateService.executeRequestsFlow({
-      requests: this.preLoginFlowRequests,
+      requests: this.preLoginFlowRequestsV2,
       concurrency,
       toShuffle,
     });
