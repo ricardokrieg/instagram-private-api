@@ -1,8 +1,11 @@
 import { Repository } from '../core/repository';
 import Chance = require('chance');
 import Bluebird = require('bluebird');
+import debug from 'debug';
 
 export class ConsentRepository extends Repository {
+  private static consentDebug = debug('ig:consent');
+
   public async auto() {
     const response = await this.existingUserFlow();
     if (response.screen_key === 'already_finished') {
@@ -49,6 +52,33 @@ export class ConsentRepository extends Repository {
         ...data,
       }),
     });
+    return body;
+  }
+
+  public async newUserFlowBegins() {
+    const { body } = await this.client.request.send({
+      url: '/api/v1/consent/new_user_flow_begins/',
+      method: 'POST',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        device_id: this.client.state.uuid,
+      }),
+    });
+    return body;
+  }
+
+  public async checkAgeEligibility({ day, month, year }) {
+    const { body } = await this.client.request.send({
+      url: '/api/v1/consent/check_age_eligibility/',
+      method: 'POST',
+      form: {
+        _csrftoken: this.client.state.cookieCsrfToken,
+        day,
+        year,
+        month,
+      },
+    });
+    ConsentRepository.consentDebug(body);
     return body;
   }
 }

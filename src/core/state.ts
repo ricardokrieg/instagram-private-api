@@ -84,6 +84,7 @@ export class State {
   build: string;
   uuid: string;
   phoneId: string;
+  waterfallId: string;
   /**
    * Google Play Advertising ID.
    *
@@ -259,6 +260,7 @@ export class State {
     this.uuid = chance.guid();
     this.phoneId = chance.guid();
     this.adid = chance.guid();
+    this.waterfallId = chance.guid();
     this.build = chance.pickone(builds);
   }
 

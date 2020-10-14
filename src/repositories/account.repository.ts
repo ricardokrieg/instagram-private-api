@@ -181,6 +181,57 @@ export class AccountRepository extends Repository {
     return body;
   }
 
+  async createWithPhoneNumber({
+    phone_prefix,
+    phone_number,
+    username,
+    password,
+    first_name,
+    day,
+    month,
+    year,
+    input_code,
+  }) {
+    const phoneWithPrefix = `${phone_prefix} ${phone_number}`;
+
+    const { body } = await Bluebird.try(async () => {
+      await this.checkPhoneNumber({ phone_number });
+      await this.sendSignupSmsCode({ phone_number: phoneWithPrefix });
+
+      const verification_code = await input_code({ phone_prefix, phone_number });
+      await this.validateSignupSmsCode({ verification_code, phone_number: phoneWithPrefix });
+
+      await this.client.consent.checkAgeEligibility({ day, month, year });
+      // TODO fetchSIHeaders
+      await this.currentAED();
+      await this.client.consent.newUserFlowBegins();
+      await this.dynamicOnboardingGetSteps({ name: first_name, email: '' });
+      await this.client.user.checkUsername({ username });
+
+      return await this.createValidated({
+        verification_code,
+        password,
+        phone_number: phoneWithPrefix,
+        username,
+        first_name,
+        day,
+        month,
+        year,
+      });
+    }).catch(IgResponseError, error => {
+      switch (error.response.body.error_type) {
+        case 'signup_block': {
+          AccountRepository.accountDebug('Signup failed');
+          throw new IgSignupBlockError(error.response as IgResponse<SpamResponse>);
+        }
+        default: {
+          throw error;
+        }
+      }
+    });
+    return body;
+  }
+
   public async currentUser() {
     const { body } = await this.client.request.send<AccountRepositoryCurrentUserResponseRootObject>({
       url: '/api/v1/accounts/current_user/',
@@ -389,5 +440,171 @@ export class AccountRepository extends Repository {
       }),
     });
     return body;
+  }
+
+  async checkPhoneNumber({ phone_number }) {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/check_phone_number/',
+      form: this.client.request.sign({
+        phone_id: this.client.state.phoneId,
+        login_nonce_map: '{}',
+        phone_number,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        guid: this.client.state.uuid,
+        device_id: this.client.state.deviceId,
+        prefill_shown: 'False',
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
+  async sendSignupSmsCode({ phone_number }) {
+    const phoneNumberStripped = phone_number.replace(/[^\+0-9]/g, '');
+
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/send_signup_sms_code/',
+      form: this.client.request.sign({
+        phone_id: this.client.state.phoneId,
+        phone_number: phoneNumberStripped,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        guid: this.client.state.uuid,
+        device_id: this.client.state.deviceId,
+        android_build_type: 'release',
+        waterfall_id: this.client.state.waterfallId,
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
+  async validateSignupSmsCode({ verification_code, phone_number }) {
+    const phoneNumberStripped = phone_number.replace(/[^\+0-9]/g, '');
+
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/validate_signup_sms_code/',
+      form: this.client.request.sign({
+        verification_code,
+        phone_number: phoneNumberStripped,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        guid: this.client.state.uuid,
+        device_id: this.client.state.deviceId,
+        waterfall_id: this.client.state.waterfallId,
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
+  async fetchSIHeaders() {
+    const { body } = await this.client.request.send({
+      method: 'GET',
+      url: `/api/v1/si/fetch_headers/?guid=${this.client.state.uuid}&challenge_type=signup`,
+    });
+    return body;
+  }
+
+  async currentAED() {
+    const { body } = await this.client.request.send({
+      method: 'GET',
+      url: '/api/v1/aed/current/',
+    });
+    return body;
+  }
+
+  async usernameSuggestions({ name, email }) {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/username_suggestions/',
+      form: this.client.request.sign({
+        phone_id: this.client.state.phoneId,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        guid: this.client.state.uuid,
+        name,
+        device_id: this.client.state.deviceId,
+        email,
+        waterfall_id: this.client.state.waterfallId,
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
+  async dynamicOnboardingGetSteps({ name, email }) {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/dynamic_onboarding/get_steps/',
+      form: this.client.request.sign({
+        is_secondary_account_creation: 'false',
+        fb_connected: 'false',
+        seen_steps: '[]',
+        progress_state: 'prefetch',
+        phone_id: this.client.state.phoneId,
+        fb_installed: 'false',
+        locale: this.client.state.language,
+        timezone_offset: this.client.state.timezoneOffset,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        network_type: 'WIFI-UNKNOWN',
+        guid: this.client.state.uuid,
+        is_ci: 'false',
+        android_id: this.client.state.deviceId,
+        waterfall_id: this.client.state.waterfallId,
+        reg_flow_taken: 'phone',
+        tos_accepted: 'false',
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
+  async createValidated({ verification_code, password, phone_number, username, first_name, day, month, year }) {
+    const { encrypted, time } = this.encryptPassword(password);
+    const phoneNumberStripped = phone_number.replace(/[^\+0-9]/g, '');
+
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/create_validated/',
+      form: this.client.request.sign({
+        is_secondary_account_creation: 'false',
+        jazoest: AccountRepository.createJazoest(this.client.state.phoneId),
+        tos_version: 'row',
+        suggestedUsername: '',
+        verification_code,
+        sn_result: 'API_ERROR: class X.7:7: ',
+        do_not_auto_login_if_credentials_match: 'true',
+        phone_id: this.client.state.phoneId,
+        enc_password: `#PWD_INSTAGRAM:4:${time}:${encrypted}`,
+        phone_number: phoneNumberStripped,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        username,
+        first_name,
+        day,
+        adid: this.client.state.adid,
+        guid: this.client.state.uuid,
+        year,
+        device_id: this.client.state.deviceId,
+        _uuid: this.client.state.uuid,
+        month,
+        sn_nonce: this.getSnNonce({ id: phoneNumberStripped }),
+        force_sign_up_code: '',
+        waterfall_id: this.client.state.waterfallId,
+        qs_stamp: '',
+        has_sms_consent: 'true',
+        one_tap_opt_in: 'true',
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
+  getSnNonce({ id }) {
+    const timestamp = Math.floor(new Date().getTime() / 1000);
+    const random = crypto.randomBytes(12);
+    const str = `${id}|${timestamp}|${random.toString()}`;
+
+    return Buffer.from(str).toString('base64');
   }
 }

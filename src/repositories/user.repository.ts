@@ -9,8 +9,11 @@ import { IgExactUserNotFoundError } from '../errors';
 import { UserLookupOptions } from '../types/user.lookup.options';
 import { defaults } from 'lodash';
 import * as Chance from 'chance';
+import debug from 'debug';
 
 export class UserRepository extends Repository {
+  private static userDebug = debug('ig:user');
+
   async info(id: string | number): Promise<UserRepositoryInfoResponseUser> {
     const { body } = await this.client.request.send<UserRepositoryInfoResponseRootObject>({
       url: `/api/v1/users/${id}/info/`,
@@ -115,6 +118,20 @@ export class UserRepository extends Repository {
         directly_sign_in: options.directlySignIn.toString(),
       }),
     });
+    return body;
+  }
+
+  public async checkUsername({ username }) {
+    const { body } = await this.client.request.send({
+      url: '/api/v1/users/check_username/',
+      method: 'POST',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        username,
+        _uuid: this.client.state.uuid,
+      }),
+    });
+    UserRepository.userDebug(body);
     return body;
   }
 }
