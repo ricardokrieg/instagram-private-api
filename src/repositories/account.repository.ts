@@ -14,14 +14,17 @@ import {
   IgResponseError,
 } from '../errors';
 import { IgResponse, AccountEditProfileOptions, AccountTwoFactorLoginOptions } from '../types';
-import { defaultsDeep } from 'lodash';
+import { defaultsDeep, random } from 'lodash';
 import { IgSignupBlockError } from '../errors/ig-signup-block.error';
 import Bluebird = require('bluebird');
 import debug from 'debug';
 import * as crypto from 'crypto';
+import Chance = require('chance');
 
 export class AccountRepository extends Repository {
   private static accountDebug = debug('ig:account');
+  private chance = new Chance();
+
   public async login(username: string, password: string): Promise<AccountRepositoryLoginResponseLogged_in_user> {
     if (!this.client.state.passwordEncryptionPubKey) {
       await this.client.qe.syncLoginExperiments();
@@ -181,32 +184,33 @@ export class AccountRepository extends Repository {
     return body;
   }
 
-  async createWithPhoneNumber({
-    phone_prefix,
-    phone_number,
-    username,
-    password,
-    first_name,
-    day,
-    month,
-    year,
-    input_code,
-  }) {
+  async createWithPhoneNumber({ username, password, first_name, day, month, year, input_phone_number, input_code }) {
+    const { phone_prefix, phone_number } = await input_phone_number();
     const phoneWithPrefix = `${phone_prefix} ${phone_number}`;
 
     const { body } = await Bluebird.try(async () => {
-      await this.checkPhoneNumber({ phone_number });
+      try {
+        await this.checkPhoneNumber({ phone_number });
+      } catch {
+        AccountRepository.accountDebug(`Check phone number ${phone_number} failed`);
+      }
+
       await this.sendSignupSmsCode({ phone_number: phoneWithPrefix });
 
       const verification_code = await input_code({ phone_prefix, phone_number });
       await this.validateSignupSmsCode({ verification_code, phone_number: phoneWithPrefix });
 
+      await this.fetchSIHeaders();
+
+      await this.usernameSuggestions({ name: first_name, email: '' });
       await this.client.consent.checkAgeEligibility({ day, month, year });
-      // TODO fetchSIHeaders
-      await this.currentAED();
       await this.client.consent.newUserFlowBegins();
-      await this.dynamicOnboardingGetSteps({ name: first_name, email: '' });
-      await this.client.user.checkUsername({ username });
+      await this.dynamicOnboardingGetSteps();
+
+      const usernameStatus = await this.client.user.checkUsername({ username });
+      if (!usernameStatus['available']) {
+        throw new Error(usernameStatus['error']);
+      }
 
       return await this.createValidated({
         verification_code,
@@ -270,6 +274,30 @@ export class AccountRepository extends Repository {
         _csrftoken: this.client.state.cookieCsrfToken,
         _uuid: this.client.state.uuid,
         use_fbuploader: true,
+        upload_id: uploadId,
+      },
+    });
+    return body;
+  }
+
+  public async changeProfilePictureAndFirstPost(
+    picture: Buffer,
+  ): Promise<AccountRepositoryCurrentUserResponseRootObject> {
+    const uploadId = Date.now().toString();
+    const name = `${uploadId}_0_${random(1000000000, 9999999999)}`;
+    const waterfallId = this.chance.guid();
+
+    const { offset } = await this.client.upload.initPhoto({ uploadId, name, waterfallId });
+    await this.client.upload.photo({ file: picture, uploadId, name, offset, waterfallId });
+
+    const { body } = await this.client.request.send<AccountRepositoryCurrentUserResponseRootObject>({
+      url: '/api/v1/accounts/change_profile_picture/',
+      method: 'POST',
+      form: {
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uuid: this.client.state.uuid,
+        use_fbuploader: true,
+        share_to_feed: true,
         upload_id: uploadId,
       },
     });
@@ -379,6 +407,22 @@ export class AccountRepository extends Repository {
         phone_id: this.client.state.phoneId,
         _csrftoken: this.client.state.cookieCsrfToken,
         usage,
+      }),
+    });
+    return body;
+  }
+
+  public async contactPointPrefillAutoConfirmationV2() {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/contact_point_prefill/',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        device_id: this.client.state.uuid,
+        _uuid: this.client.state.uuid,
+        phone_id: this.client.state.phoneId,
+        usage: 'auto_confirmation',
       }),
     });
     return body;
@@ -515,6 +559,32 @@ export class AccountRepository extends Repository {
     return body;
   }
 
+  async multipleAccountsGetAccountFamily() {
+    const { body } = await this.client.request.send({
+      method: 'GET',
+      url: '/api/v1/multiple_accounts/get_account_family/',
+    });
+    return body;
+  }
+
+  async nuxNewAccountNuxSeen() {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/nux/new_account_nux_seen/',
+      form: this.client.request.sign({
+        is_fb4a_installed: 'false', // TODO confirm if should be false or 'false'
+        phone_id: this.client.state.phoneId,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        _uid: this.client.state.cookieUserId,
+        guid: this.client.state.uuid,
+        _uuid: this.client.state.uuid,
+        waterfall_id: this.client.state.waterfallId,
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
   async usernameSuggestions({ name, email }) {
     const { body } = await this.client.request.send({
       method: 'POST',
@@ -533,7 +603,7 @@ export class AccountRepository extends Repository {
     return body;
   }
 
-  async dynamicOnboardingGetSteps({ name, email }) {
+  async dynamicOnboardingGetSteps() {
     const { body } = await this.client.request.send({
       method: 'POST',
       url: '/api/v1/dynamic_onboarding/get_steps/',
@@ -554,6 +624,35 @@ export class AccountRepository extends Repository {
         waterfall_id: this.client.state.waterfallId,
         reg_flow_taken: 'phone',
         tos_accepted: 'false',
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
+  async dynamicOnboardingGetStepsStart() {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/dynamic_onboarding/get_steps/',
+      form: this.client.request.sign({
+        is_secondary_account_creation: 'false',
+        fb_connected: 'false',
+        seen_steps: '[]',
+        progress_state: 'start',
+        phone_id: this.client.state.phoneId,
+        fb_installed: 'false',
+        locale: this.client.state.language,
+        timezone_offset: this.client.state.timezoneOffset,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        network_type: 'WIFI-UNKNOWN',
+        _uid: this.client.state.cookieUserId,
+        guid: this.client.state.uuid,
+        _uuid: this.client.state.uuid,
+        is_ci: 'false',
+        android_id: this.client.state.deviceId,
+        waterfall_id: this.client.state.waterfallId,
+        reg_flow_taken: 'phone',
+        tos_accepted: 'true',
       }),
     });
     AccountRepository.accountDebug(body);

@@ -55,6 +55,20 @@ export class SimulateService extends Repository {
     ];
   }
 
+  private get postSignupFlowRequestsV2(): Array<() => any> {
+    return [
+      () => this.client.account.multipleAccountsGetAccountFamily(),
+      () => this.client.account.nuxNewAccountNuxSeen(),
+      () => this.client.launcher.postSignupSyncV2(),
+      () => this.client.qe.syncSignupExperimentsV2(),
+      () => this.client.zr.tokenResult(),
+      () => this.client.account.dynamicOnboardingGetStepsStart(),
+      () => this.client.account.contactPointPrefillAutoConfirmationV2(),
+      () => this.client.qe.syncSignupExperimentsV2(),
+      () => this.client.qe.syncSignupExperimentsV2(),
+    ];
+  }
+
   private static async executeRequestsFlow({
     requests,
     concurrency = 1,
@@ -81,6 +95,14 @@ export class SimulateService extends Repository {
   public async postLoginFlow(concurrency?: number, toShuffle?: boolean) {
     return SimulateService.executeRequestsFlow({
       requests: this.postLoginFlowRequests,
+      concurrency,
+      toShuffle,
+    });
+  }
+
+  public async postSignupFlow(concurrency?: number, toShuffle?: boolean) {
+    return SimulateService.executeRequestsFlow({
+      requests: this.postSignupFlowRequestsV2,
       concurrency,
       toShuffle,
     });

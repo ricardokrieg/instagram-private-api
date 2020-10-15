@@ -17,25 +17,48 @@ export class UploadRepository extends Repository {
 
   public async photo(options: UploadPhotoOptions): Promise<UploadRepositoryPhotoResponseRootObject> {
     const uploadId = options.uploadId || Date.now();
-    const name = `${uploadId}_0_${random(1000000000, 9999999999)}`;
+    const name = options.name || `${uploadId}_0_${random(1000000000, 9999999999)}`;
+    const offset = options.offset || 0;
     const contentLength = options.file.byteLength;
+    const ruploadParams: any = UploadRepository.createPhotoRuploadParamsV2(uploadId);
+
     UploadRepository.uploadDebug(`Uploading ${options.file.byteLength}b as ${uploadId} (photo, jpeg)`);
+
     const { body } = await this.client.request.send<UploadRepositoryPhotoResponseRootObject>({
       url: `/rupload_igphoto/${name}`,
       method: 'POST',
       headers: {
+        ...this.getBaseHeaders(ruploadParams),
         X_FB_PHOTO_WATERFALL_ID: options.waterfallId || this.chance.guid(),
         'X-Entity-Type': 'image/jpeg',
-        Offset: 0,
-        'X-Instagram-Rupload-Params': JSON.stringify(UploadRepository.createPhotoRuploadParams(options, uploadId)),
+        Offset: offset,
         'X-Entity-Name': name,
         'X-Entity-Length': contentLength,
         'Content-Type': 'application/octet-stream',
         'Content-Length': contentLength,
-        'Accept-Encoding': 'gzip',
+        'Accept-Encoding': 'gzip, deflate',
       },
       body: options.file,
     });
+    return body;
+  }
+
+  public async initPhoto({ uploadId, name, waterfallId }): Promise<{ offset: number }> {
+    const ruploadParams: any = UploadRepository.createPhotoRuploadParamsV2(uploadId);
+    UploadRepository.uploadDebug(`Initializing photo upload: ${JSON.stringify(ruploadParams)}`);
+
+    const { body } = await this.client.request.send(
+      {
+        url: `/rupload_igphoto/${name}`,
+        method: 'GET',
+        headers: {
+          ...this.getBaseHeaders(ruploadParams),
+          X_FB_PHOTO_WATERFALL_ID: waterfallId,
+          'Accept-Encoding': 'gzip, deflate',
+        },
+      },
+      true,
+    );
     return body;
   }
 
@@ -190,7 +213,7 @@ export class UploadRepository extends Repository {
   private getBaseHeaders(ruploadParams: string) {
     return {
       'X-IG-Connection-Type': this.client.state.connectionTypeHeader,
-      'X-IG-Capabilities': this.client.state.capabilitiesHeader,
+      'X-IG-Capabilities': this.client.state.capabilitiesHeaderV2,
       'X-IG-App-ID': this.client.state.fbAnalyticsApplicationId,
       'Accept-Encoding': 'gzip',
       'X-Instagram-Rupload-Params': JSON.stringify(ruploadParams),
@@ -209,6 +232,14 @@ export class UploadRepository extends Repository {
       ruploadParams.is_sidecar = '1';
     }
     return ruploadParams;
+  }
+
+  private static createPhotoRuploadParamsV2(uploadId: number | string) {
+    return {
+      upload_id: uploadId.toString(),
+      media_type: '1',
+      image_compression: JSON.stringify({ lib_name: 'moz', lib_version: '3.1.m', quality: '73' }),
+    };
   }
 
   public static createVideoRuploadParams(

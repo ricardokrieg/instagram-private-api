@@ -10,6 +10,9 @@ export class QeRepository extends Repository {
   public async syncLoginExperimentsV2() {
     return this.syncV2(this.client.state.loginExperimentsV2);
   }
+  public async syncSignupExperimentsV2() {
+    return this.syncV2(this.client.state.signupExperimentsV2);
+  }
   public async sync(experiments) {
     let data;
     try {
@@ -37,12 +40,22 @@ export class QeRepository extends Repository {
     return body;
   }
   public async syncV2(experiments) {
-    const data = {
-      _csrftoken: this.client.state.cookieCsrfToken,
-      id: this.client.state.uuid,
-      server_config_experiments: `1`,
-      experiments,
-    };
+    let data;
+    try {
+      const uid = this.client.state.cookieUserId;
+      data = {
+        _csrftoken: this.client.state.cookieCsrfToken,
+        id: uid,
+        _uid: uid,
+        _uuid: this.client.state.uuid,
+        server_config_retrieval: `1`,
+      };
+    } catch {
+      data = {
+        id: this.client.state.uuid,
+      };
+    }
+    data = Object.assign(data, { experiments });
 
     const { body } = await this.client.request.send({
       method: 'POST',

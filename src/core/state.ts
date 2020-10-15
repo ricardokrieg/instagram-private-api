@@ -54,6 +54,10 @@ export class State {
     return this.constants.LOGIN_EXPERIMENTS_V2;
   }
 
+  get signupExperimentsV2(): string {
+    return this.constants.SIGNUP_EXPERIMENTS_V2;
+  }
+
   get experiments(): string {
     return this.constants.EXPERIMENTS;
   }
