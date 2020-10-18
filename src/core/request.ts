@@ -73,8 +73,10 @@ export class Request {
       this.defaults,
     );
     Request.requestDebug(`Requesting ${options.method} ${options.url || options.uri || '[could not find url]'}`);
+    Request.requestDebug(options.qs);
     Request.requestDebug(options.form);
     const response = await this.faultTolerantRequest(options);
+    Request.requestDebug(response.body);
     this.updateState(response);
     process.nextTick(() => this.end$.next());
     if (response.body.status === 'ok' || (onlyCheckHttpStatus && response.statusCode === 200)) {
