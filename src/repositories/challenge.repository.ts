@@ -16,6 +16,7 @@ export class ChallengeRepository extends Repository {
       qs: {
         guid: this.client.state.uuid,
         device_id: this.client.state.deviceId,
+        challenge_context: this.client.state.checkpoint.challenge.challenge_context,
       },
     });
     this.middleware(body);
@@ -99,6 +100,29 @@ export class ChallengeRepository extends Repository {
         return challenge;
       }
     }
+  }
+
+  public async recaptcha(): Promise<ChallengeStateResponse> {
+    if (!this.client.state.checkpoint) {
+      throw new IgNoCheckpointError();
+    }
+
+    if (!this.client.state.challenge) {
+      await this.state();
+    }
+
+    const { body } = await this.client.request.send({
+      url: this.client.state.challengeUrl,
+      method: 'GET',
+      qs: {
+        guid: this.client.state.uuid,
+        device_id: this.client.state.deviceId,
+        challenge_context: this.client.state.checkpoint.challenge.challenge_context,
+      },
+    });
+
+    this.middleware(body);
+    return body;
   }
 
   /**

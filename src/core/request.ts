@@ -43,6 +43,7 @@ export class Request {
   constructor(private client: IgApiClient) {}
 
   private static requestTransform(body, response: Response, resolveWithFullResponse) {
+    Request.requestDebug(body);
     try {
       // Sometimes we have numbers greater than Number.MAX_SAFE_INTEGER in json response
       // To handle it we just wrap numbers with length > 15 it double quotes to get strings instead
@@ -172,6 +173,7 @@ export class Request {
     if (json.error_type === 'inactive user') {
       return new IgInactiveUserError(response);
     }
+    Request.requestDebug(response.body);
     return new IgResponseError(response);
   }
 

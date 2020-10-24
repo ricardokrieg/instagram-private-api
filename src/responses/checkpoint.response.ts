@@ -11,4 +11,5 @@ export interface CheckpointResponseChallenge {
   lock: boolean;
   logout: boolean;
   native_flow: boolean;
+  challenge_context: string;
 }
