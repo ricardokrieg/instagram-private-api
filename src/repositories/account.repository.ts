@@ -187,8 +187,7 @@ export class AccountRepository extends Repository {
   }
 
   async createWithPhoneNumber({ username, password, first_name, day, month, year, input_phone_number, input_code }) {
-    const { phone_prefix, phone_number } = await input_phone_number();
-    const phoneWithPrefix = `${phone_prefix} ${phone_number}`;
+    const phone_number = await input_phone_number();
 
     const { body } = await Bluebird.try(async () => {
       try {
@@ -197,10 +196,10 @@ export class AccountRepository extends Repository {
         AccountRepository.accountDebug(`Check phone number ${phone_number} failed`);
       }
 
-      await this.sendSignupSmsCode({ phone_number: phoneWithPrefix });
+      await this.sendSignupSmsCode({ phone_number });
 
-      const verification_code = await input_code({ phone_prefix, phone_number });
-      await this.validateSignupSmsCode({ verification_code, phone_number: phoneWithPrefix });
+      const verification_code = await input_code({ phone_number });
+      await this.validateSignupSmsCode({ verification_code, phone_number });
 
       await this.fetchSIHeaders();
 
@@ -217,7 +216,7 @@ export class AccountRepository extends Repository {
       return await this.createValidated({
         verification_code,
         password,
-        phone_number: phoneWithPrefix,
+        phone_number,
         username,
         first_name,
         day,
