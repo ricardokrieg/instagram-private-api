@@ -152,24 +152,39 @@ export class AccountRepository extends Repository {
     return body;
   }
 
-  async create({ username, password, email, first_name }) {
+  async create({ force_sign_up_code, password, email, username, first_name, day, month, year }) {
+    const { encrypted, time } = this.encryptPassword(password);
+
     const { body } = await Bluebird.try(() =>
       this.client.request.send({
         method: 'POST',
         url: '/api/v1/accounts/create/',
         form: this.client.request.sign({
-          username,
-          password,
-          email,
-          first_name,
-          guid: this.client.state.uuid,
-          device_id: this.client.state.deviceId,
+          is_secondary_account_creation: 'false',
+          jazoest: AccountRepository.createJazoest(this.client.state.phoneId),
+          tos_version: 'row',
+          suggestedUsername: '',
+          sn_result: 'API_ERROR: class X.7ed:7: ',
+          do_not_auto_login_if_credentials_match: 'true',
+          phone_id: this.client.state.phoneId,
+          enc_password: `#PWD_INSTAGRAM:4:${time}:${encrypted}`,
           _csrftoken: this.client.state.cookieCsrfToken,
-          force_sign_up_code: '',
+          username,
+          first_name,
+          day,
+          adid: this.client.state.adid,
+          guid: this.client.state.uuid,
+          year,
+          device_id: this.client.state.deviceId,
+          _uuid: this.client.state.uuid,
+          email,
+          month,
+          sn_nonce: this.getSnNonce({ id: email }),
+          force_sign_up_code,
+          waterfall_id: this.client.state.waterfallId,
           qs_stamp: '',
-          waterfall_id: this.client.state.uuid,
-          sn_nonce: '',
-          sn_result: '',
+          has_sms_consent: 'true',
+          one_tap_opt_in: 'true',
         }),
       }),
     ).catch(IgResponseError, error => {
@@ -217,6 +232,59 @@ export class AccountRepository extends Repository {
         verification_code,
         password,
         phone_number,
+        username,
+        first_name,
+        day,
+        month,
+        year,
+      });
+    }).catch(IgResponseError, error => {
+      switch (error.response.body.error_type) {
+        case 'signup_block': {
+          AccountRepository.accountDebug('Signup failed');
+          throw new IgSignupBlockError(error.response as IgResponse<SpamResponse>);
+        }
+        default: {
+          throw error;
+        }
+      }
+    });
+    return body;
+  }
+
+  async createWithEmail({ username, password, first_name, day, month, year, input_email, input_code }) {
+    const email = await input_email();
+
+    const { body } = await Bluebird.try(async () => {
+      // try {
+      //   await this.checkEmail({ email });
+      // } catch {
+      //   AccountRepository.accountDebug(`Check email ${email} failed`);
+      // }
+
+      await this.sendVerifyEmail({ email });
+
+      const verification_code = await input_code({ email });
+      const confirmationResponse = await this.checkConfirmationCode({ verification_code, email });
+
+      const force_sign_up_code = confirmationResponse['signup_code'];
+
+      await this.fetchSIHeaders();
+
+      await this.usernameSuggestions({ name: first_name, email });
+      await this.client.consent.checkAgeEligibility({ day, month, year });
+      await this.client.consent.newUserFlowBegins();
+      await this.dynamicOnboardingGetSteps();
+
+      const usernameStatus = await this.client.user.checkUsername({ username });
+      if (!usernameStatus['available']) {
+        throw new Error(usernameStatus['error']);
+      }
+
+      return await this.create({
+        force_sign_up_code,
+        password,
+        email,
         username,
         first_name,
         day,
@@ -537,6 +605,58 @@ export class AccountRepository extends Repository {
         _csrftoken: this.client.state.cookieCsrfToken,
         guid: this.client.state.uuid,
         device_id: this.client.state.deviceId,
+        waterfall_id: this.client.state.waterfallId,
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
+  async checkEmail({ email }) {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/check_email/',
+      form: this.client.request.sign({
+        android_device_id: this.client.state.deviceId,
+        login_nonce_map: '{}',
+        _csrftoken: this.client.state.cookieCsrfToken,
+        login_nonces: '[]',
+        email,
+        qe_id: this.client.state.uuid,
+        waterfall_id: this.client.state.waterfallId,
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
+  async sendVerifyEmail({ email }) {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/send_verify_email/',
+      form: this.client.request.sign({
+        phone_id: this.client.state.phoneId,
+        _csrftoken: this.client.state.cookieCsrfToken,
+        guid: this.client.state.uuid,
+        device_id: this.client.state.deviceId,
+        email,
+        waterfall_id: this.client.state.waterfallId,
+        auto_confirm_only: 'false',
+      }),
+    });
+    AccountRepository.accountDebug(body);
+    return body;
+  }
+
+  async checkConfirmationCode({ verification_code, email }) {
+    const { body } = await this.client.request.send({
+      method: 'POST',
+      url: '/api/v1/accounts/check_confirmation_code/',
+      form: this.client.request.sign({
+        _csrftoken: this.client.state.cookieCsrfToken,
+        code: verification_code,
+        device_id: this.client.state.deviceId,
+        email,
         waterfall_id: this.client.state.waterfallId,
       }),
     });

@@ -36,7 +36,7 @@ export class Request {
   end$ = new Subject();
   error$ = new Subject<IgClientError>();
   attemptOptions: Partial<AttemptOptions<any>> = {
-    maxAttempts: 1,
+    maxAttempts: 10,
   };
   defaults: Partial<Options> = {};
 
