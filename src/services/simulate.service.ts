@@ -18,10 +18,10 @@ export class SimulateService extends Repository {
 
   private get preLoginFlowRequestsV2(): Array<() => any> {
     return [
-      () => this.client.account.contactPointPrefillV2('prefill'),
+      // () => this.client.account.contactPointPrefillV2('prefill'),
       () => this.client.launcher.preLoginSyncV2(),
       () => this.client.qe.syncLoginExperimentsV2(),
-      () => this.client.account.getPrefillCandidatesV2(),
+      // () => this.client.account.getPrefillCandidatesV2(),
     ];
   }
 

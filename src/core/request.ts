@@ -74,6 +74,7 @@ export class Request {
       this.defaults,
     );
     Request.requestDebug(`Requesting ${options.method} ${options.url || options.uri || '[could not find url]'}`);
+    Request.requestDebug(options.headers);
     Request.requestDebug(options.qs);
     Request.requestDebug(options.form);
     const response = await this.faultTolerantRequest(options);
@@ -187,38 +188,45 @@ export class Request {
 
   public getDefaultHeaders() {
     return {
-      'User-Agent': this.client.state.appUserAgent,
       // 'X-Ads-Opt-Out': this.client.state.adsOptOut ? '1' : '0', // TODO
       // needed? 'X-DEVICE-ID': this.client.state.uuid,
       // 'X-CM-Bandwidth-KBPS': '-1.000', // TODO
       // 'X-CM-Latency': '-1.000', // TODO
-      'X-IG-App-Locale': this.client.state.language,
-      'X-IG-Device-Locale': this.client.state.language,
-      'X-IG-Mapped-Locale': this.client.state.language,
+      'X-Ig-App-Locale': this.client.state.language,
+      'X-Ig-Device-Locale': this.client.state.language,
+      'X-Ig-Mapped-Locale': this.client.state.language,
       'X-Pigeon-Session-Id': this.client.state.pigeonSessionId,
       'X-Pigeon-Rawclienttime': (Date.now() / 1000).toFixed(3),
-      'X-IG-Connection-Speed': `${random(1000, 3700)}kbps`,
-      'X-IG-Bandwidth-Speed-KBPS': '-1.000',
-      'X-IG-Bandwidth-TotalBytes-B': '0',
-      'X-IG-Bandwidth-TotalTime-MS': '0',
+      'X-Ig-Bandwidth-Speed-Kbps': '-1.000',
+      'X-Ig-Bandwidth-Totalbytes-B': '0',
+      'X-Ig-Bandwidth-Totaltime-Ms': '0',
+      // 'X-Ig-App-Startup-Country': 'US',
+      // 'X-IG-Connection-Speed': `${random(1000, 3700)}kbps`,
       // 'X-IG-EU-DC-ENABLED':
       //   typeof this.client.state.euDCEnabled === 'undefined' ? void 0 : this.client.state.euDCEnabled.toString(), // TODO
       // 'X-IG-Extended-CDN-Thumbnail-Cache-Busting-Value': this.client.state.thumbnailCacheBustingValue.toString(), // TODO
       'X-Bloks-Version-Id': this.client.state.bloksVersionId,
-      'X-MID': this.client.state.extractCookie('mid')?.value,
-      'X-IG-WWW-Claim': this.client.state.igWWWClaim || '0',
-      'X-Bloks-Is-Layout-RTL': this.client.state.isLayoutRTL.toString(),
+      'X-Ig-Www-Claim': this.client.state.igWWWClaim || '0',
+      'X-Bloks-Is-Layout-Rtl': this.client.state.isLayoutRTL.toString(),
       'X-Bloks-Is-Panorama-Enabled': this.client.state.isPanoramaEnabled.toString(),
-      'X-IG-Connection-Type': this.client.state.connectionTypeHeader,
-      'X-IG-Capabilities': this.client.state.capabilitiesHeaderV2,
-      'X-IG-App-ID': this.client.state.fbAnalyticsApplicationId,
-      'X-IG-Device-ID': this.client.state.uuid,
-      'X-IG-Android-ID': this.client.state.deviceId,
+      'X-Ig-Device-Id': this.client.state.uuid,
+      'X-Ig-Family-Device-Id': this.client.state.phoneId,
+      'X-Ig-Android-Id': this.client.state.deviceId,
+      'X-Ig-Timezone-Offset': this.client.state.timezoneOffset,
+      'X-Ig-Connection-Type': this.client.state.connectionTypeHeader,
+      'X-Ig-Capabilities': this.client.state.capabilitiesHeaderV2,
+      'X-Ig-App-Id': this.client.state.fbAnalyticsApplicationId,
+      'User-Agent': this.client.state.appUserAgent,
       'Accept-Language': this.client.state.language.replace('_', '-'),
-      'X-FB-HTTP-Engine': 'Liger',
-      // Authorization: this.client.state.authorization, // TODO
-      Host: 'i.instagram.com',
+      'X-Mid': this.client.state.extractCookie('mid')?.value,
+      'Ig-Intended-User-Id': '0',
       'Accept-Encoding': 'gzip, deflate',
+      'X-Fb-Http-Engine': 'Liger',
+      'X-Fb-Client-Ip': 'True',
+      'X-Fb-Server-Cluster': 'True',
+      // Authorization: this.client.state.authorization, // TODO
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      Host: 'i.instagram.com',
       Connection: 'close',
     };
   }

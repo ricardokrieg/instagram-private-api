@@ -33,7 +33,7 @@ export class QeRepository extends Repository {
       method: 'POST',
       url: '/api/v1/qe/sync/',
       headers: {
-        'X-DEVICE-ID': this.client.state.uuid,
+        'X-Device-Id': this.client.state.uuid,
       },
       form: this.client.request.sign(data),
     });
@@ -46,8 +46,8 @@ export class QeRepository extends Repository {
       data = {
         _csrftoken: this.client.state.cookieCsrfToken,
         id: uid,
-        _uid: uid,
-        _uuid: this.client.state.uuid,
+        // _uid: uid,
+        // _uuid: this.client.state.uuid,
         server_config_retrieval: `1`,
       };
     } catch {
@@ -61,7 +61,7 @@ export class QeRepository extends Repository {
       method: 'POST',
       url: '/api/v1/qe/sync/',
       headers: {
-        'X-DEVICE-ID': this.client.state.uuid,
+        'X-Device-Id': this.client.state.uuid,
       },
       form: this.client.request.sign(data),
     });

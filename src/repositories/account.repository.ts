@@ -434,7 +434,7 @@ export class AccountRepository extends Repository {
       method: 'POST',
       url: '/api/v1/accounts/read_msisdn_header/',
       headers: {
-        'X-DEVICE-ID': this.client.state.uuid,
+        'X-Device-Id': this.client.state.uuid,
       },
       form: this.client.request.sign({
         mobile_subno_usage: usage,
@@ -665,9 +665,11 @@ export class AccountRepository extends Repository {
   }
 
   async fetchSIHeaders() {
+    const guid = this.client.state.uuid.replace(/\-/g, '');
+
     const { body } = await this.client.request.send({
       method: 'GET',
-      url: `/api/v1/si/fetch_headers/?guid=${this.client.state.uuid}&challenge_type=signup`,
+      url: `/api/v1/si/fetch_headers/?guid=${guid}&challenge_type=signup`,
     });
     return body;
   }

@@ -73,10 +73,10 @@ export class State {
   timezoneOffset: string = String(new Date().getTimezoneOffset() * -60);
   radioType = 'wifi-none';
   capabilitiesHeader = '3brTvwE=';
-  capabilitiesHeaderV2 = '3brTvx8=';
+  capabilitiesHeaderV2 = '3brTvx0=';
   connectionTypeHeader = 'WIFI';
   isLayoutRTL: boolean = false;
-  isPanoramaEnabled: boolean = false;
+  isPanoramaEnabled: boolean = true;
   euDCEnabled?: boolean = undefined;
   adsOptOut: boolean = false;
   thumbnailCacheBustingValue: number = 1000;

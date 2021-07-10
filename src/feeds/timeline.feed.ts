@@ -54,7 +54,7 @@ export class TimelineFeed extends Feed<TimelineFeedResponse, TimelineFeedRespons
       headers: {
         'X-Ads-Opt-Out': 0,
         'X-Google-AD-ID': this.client.state.adid,
-        'X-DEVICE-ID': this.client.state.uuid,
+        'X-Device-Id': this.client.state.uuid,
         'X-FB': 1,
       },
       form,
